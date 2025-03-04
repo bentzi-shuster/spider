@@ -2,3 +2,4 @@
 from spider import Spider
 
 spider = Spider()
+spider.test()

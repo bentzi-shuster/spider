@@ -10,5 +10,3 @@ formatter = logging.Formatter(
     '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 console.setFormatter(formatter)
 logger.addHandler(console)
-# git config --global user.email "
-# git config --global user.name "
