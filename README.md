@@ -50,3 +50,8 @@ TODO
 - Vikas Shah
 - Benjamin Shuster
 - Hermann Tankeu
+
+## Known Issues / Challenges
+
+- HPE.com is not allowing us to scrape their website (there is a robots.txt file that says its okay to scrape... but it still blocks us)
+- The dataset is very large and may take a long time to process

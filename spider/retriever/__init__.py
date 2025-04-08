@@ -1,8 +1,8 @@
 from spider.logs import logger
-import requests
 import re
 from spider.soup import parse_html
 from playwright.sync_api import sync_playwright
+import urllib.robotparser
 
 
 class Retriever():
@@ -24,7 +24,11 @@ class Retriever():
         Setup the playwright browser instance
         """
         playwright_instance = sync_playwright().start()
-        browser = playwright_instance.chromium.launch()
+        browser = playwright_instance.chromium.launch()  # headless=False)
+        playwright_instance.chromium.launch(args=["--disable-http2"])
+        browser.new_context(
+            ignore_https_errors=True,
+            user_agent='msnbot', bypass_csp=True)
         return browser
 
     def pull_url(self, url):
@@ -33,13 +37,19 @@ class Retriever():
         this is extra slow because of JavaScript execution being fucky
         """
         page = self.browser.new_page()
-        page.goto(url)
+        try:
+            page.goto(url=url, wait_until='load')
+        except:
+            logger.error('Error loading URL: %s' % url)
+            return None
+
+        page.set_extra_http_headers({'Upgrade-Insecure-Requests': '1'})
         # make sure the page is fully loaded and javascript is executed
         page.wait_for_load_state('load')
         # wait for 2 seconds to make sure all the content is loaded
         page.wait_for_timeout(2000)
         content = page.content()
-
+        page.close()
         return content
 
     def parse_html_data(self, html_text, url):
@@ -62,12 +72,32 @@ class Retriever():
             job_links.append(link['href'])
         return job_links
 
+    def robt_txt_check(self, url):
+        """
+        Check the robots.txt file of the domain to see if the URL is allowed to be scraped
+        """
+        rp = urllib.robotparser.RobotFileParser()
+        page = self.browser.new_page()
+        page.goto(url + '/robots.txt')
+        # get the content of the robots.txt file
+        robots_txt = page.content()
+        rp.parse(robots_txt)
+        if not rp.can_fetch('*', url):
+            logger.error('URL %s is not allowed to be scraped' % url)
+            return False
+        return True  # check
+
     def retrieve(self, url):
         """
         Retrieve the HTML content of the URL, parse it and find job links
         """
-        url
+        if not self.robt_txt_check(url):
+            return []
         html_content = self.pull_url(url)
+        if not html_content:
+            return []
         parsed_html = self.parse_html_data(html_content, url)
+        if not parsed_html:
+            return []
         job_links = self.find_job_links(parsed_html, url)
         return job_links
